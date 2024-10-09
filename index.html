@@ -11,7 +11,7 @@
     <style type="text/css">
         #network {
             width: 100%;
-            height: 400px;
+            aspect-ratio: 16 / 9;
             border: 1px solid lightgray;
         }
     </style>
@@ -28,7 +28,15 @@
         <div class="row">
             <div class="col-12">
                 <div id="network"></div>
-                <select name="" id="fixed-n">
+               
+            </div>
+        </div>
+    </main>
+    <div class="container" action="">
+        <div class="row">
+            <div class="col-md-6 py-2">
+                <label for="fixed-n">N</label>
+                <select name="fixed-n" class="form-select" id="fixed-n">
                     <option value="3">3</option>
                     <option value="4">4</option>
                     <option value="5">5</option>
@@ -65,8 +73,22 @@
                     <option value="36">36</option>
                 </select>
             </div>
+            <div class="col-md-6 py-2">
+                <label for="Highlight">Highlight</label>
+                <select name="Highlight" class="form-select" id="highlight">
+                    <option value="none">None</option>
+                    <option value="primes">Primes</option>
+                    <option value="fixed">Fixed Points</option>
+                    <option value="cycles">Cycles (Excludes fixed points)</option>
+                    <option value="factors">Factors of N</option>
+                    <option value="coprime">Coprime with N</option>
+                </select>
+            </div>
+            <div class="col-12 py-2">
+                <button type="button" class="btn btn-primary" id="submit">Generate</button>
+            </div>
         </div>
-    </main>
+    </div>
     <section class="container">
         <div class="row">
             <div class="col-12">

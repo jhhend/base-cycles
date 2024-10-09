@@ -51,24 +51,27 @@ function generateGraph(N) {
                 from: i,
                 to: node.base,
                 arrows: 'to',
+                color: "#54b4d3"
             });
             existingEdges[`${i}->${node.base}`] = true;
-            console.log(existingEdges);
         }
         if (!existingNodes[node.base]) {
-            nodes.push({ id: node.base, label: node.base.toString(), });
+            nodes.push({ id: node.base, label: node.base.toString() });
             existingNodes[node.base] = true;
         }
         node.print();
     }
-    return { nodes, edges };
+    return colorGraph({ nodes, edges });
 }
 
 var nodes = [ ];
 var edges = [ ];
 var network = null;
 
-var data = generateGraph(12);
+let FIXED_N = 12;
+let COLOR_MODE = "none";
+
+var data = generateGraph(FIXED_N);
 var seed = 2;
 
 function destroy() {
@@ -93,29 +96,13 @@ function draw() {
 
 function editNode(data, cancelAction, callback) {
   document.getElementById("node-label").value = data.label;
-  document.getElementById("node-saveButton").onclick = saveNodeData.bind(
-    this,
-    data,
-    callback
-  );
-  document.getElementById("node-cancelButton").onclick = cancelAction.bind(
-    this,
-    callback
-  );
-  document.getElementById("node-popUp").style.display = "block";
 }
 
 // Callback passed as parameter is ignored
 function clearNodePopUp() {
-  document.getElementById("node-saveButton").onclick = null;
-  document.getElementById("node-cancelButton").onclick = null;
-  document.getElementById("node-popUp").style.display = "none";
+
 }
 
-function cancelNodeEdit(callback) {
-  clearNodePopUp();
-  callback(null);
-}
 
 function saveNodeData(data, callback) {
   data.label = document.getElementById("node-label").value;
@@ -123,39 +110,6 @@ function saveNodeData(data, callback) {
   callback(data);
 }
 
-function editEdgeWithoutDrag(data, callback) {
-  // filling in the popup DOM elements
-  document.getElementById("edge-label").value = data.label;
-  document.getElementById("edge-saveButton").onclick = saveEdgeData.bind(
-    this,
-    data,
-    callback
-  );
-  document.getElementById("edge-cancelButton").onclick = cancelEdgeEdit.bind(
-    this,
-    callback
-  );
-  document.getElementById("edge-popUp").style.display = "block";
-}
-
-function clearEdgePopUp() {
-  document.getElementById("edge-saveButton").onclick = null;
-  document.getElementById("edge-cancelButton").onclick = null;
-  document.getElementById("edge-popUp").style.display = "none";
-}
-
-function cancelEdgeEdit(callback) {
-  clearEdgePopUp();
-  callback(null);
-}
-
-function saveEdgeData(data, callback) {
-  if (typeof data.to === "object") data.to = data.to.id;
-  if (typeof data.from === "object") data.from = data.from.id;
-  data.label = document.getElementById("edge-label").value;
-  clearEdgePopUp();
-  callback(data);
-}
 
 function convertBase(str, fromBase, toBase) {
 
@@ -229,14 +183,146 @@ document.addEventListener("DOMContentLoaded", () => {
   init();
 
   // Get the dropdown
-  var dropdown = document.getElementById("fixed-n");
-  if (!dropdown) { return; }
+  const submit = document.getElementById("submit");
+  const highlight = document.getElementById("highlight");
+  const fixedN = document.getElementById("fixed-n");
+  if (!submit || !highlight || !fixedN) { return; }
 
-  dropdown.addEventListener("change", (e) => {
-    const N = parseInt(e.target.value);
-    data = generateGraph(N);
+  submit.addEventListener("click", () => {
+    COLOR_MODE = highlight.value;
+    FIXED_N = parseInt(fixedN.value);
+    data = generateGraph(FIXED_N);
     init();
   })
 
 
 });
+
+function isPrime(n) {
+  if (n <= 1) return false;
+  if (n <= 3) return true;
+
+  if (n % 2 == 0 || n % 3 == 0) return false;
+
+  for (let i = 5; i * i <= n; i = i + 6) {
+      if (n % i == 0 || n % (i + 2) == 0) return false;
+  }
+
+  return true;   
+}
+
+function colorGraph(network) {
+
+  if (COLOR_MODE === 'cycles') {
+    const nodesInCycle = findCycleNodes(network);
+    const fixedNodes = findFixedNodes(network);
+
+    network.nodes = network.nodes.map((node) => {
+      return { ...node, color: nodesInCycle.includes(node.id) && !fixedNodes.includes(node.id) ? '#ffc107' : '#54b4d3' };
+    })
+
+    return network;
+  }
+
+  if ( COLOR_MODE === 'fixed') {
+    const fixedNodes = findFixedNodes(network);
+
+    network.nodes = network.nodes.map((node) => {
+      return { ...node, color: fixedNodes.includes(node.id) ? '#ffc107' : '#54b4d3' };
+    })
+
+    return network;
+  }
+
+
+
+  network.nodes = network.nodes.map((node) => {
+    if (COLOR_MODE === 'none') {
+      return { ...node, color: '#54b4d3' };
+    } else if (COLOR_MODE === 'primes') {
+      return { ...node, color: isPrime(node.id) ? '#ffc107' : '#54b4d3' };
+    } else if (COLOR_MODE === 'factors') {
+      return { ...node, color: isFactor(node.id, FIXED_N) ? '#ffc107' : '#54b4d3' };
+    } else if (COLOR_MODE === 'coprime') {
+      return { ...node, color: areCoprime(node.id, FIXED_N) ? '#ffc107' : '#54b4d3' };
+    }
+  });
+  return network;
+}
+
+
+function findCycleNodes(graph) {
+  const N = graph.nodes.length;
+  let visited = Array(N).fill(false);  // To mark visited nodes
+  let recStack = Array(N).fill(false);  // To track nodes in the current DFS path
+  let cycleNodes = new Set();  // To store nodes that are part of cycles
+
+  // Helper function to perform DFS
+  function dfs(node, path) {
+      visited[node.id] = true;
+      recStack[node.id] = true;  // Add the node to recursion stack
+      path.push(node.id);  // Add node to the current path
+
+      // Explore all adjacent nodes (outgoing edges)
+      for (let edge of graph.edges) {
+          if (edge.from === node.id) {
+              let neighbor = edge.to;
+
+              if (!visited[neighbor]) {
+                  if (dfs(graph.nodes.find(n => n.id === neighbor), path)) {
+                      return true;
+                  }
+              } else if (recStack[neighbor]) {
+                  // Cycle detected, add nodes in the cycle
+                  let cycleStartIndex = path.indexOf(neighbor);
+                  if (cycleStartIndex !== -1) {
+                      for (let i = cycleStartIndex; i < path.length; i++) {
+                          cycleNodes.add(path[i]);
+                      }
+                  }
+                  return true;  // Return true to indicate a cycle was found
+              }
+          }
+      }
+
+      recStack[node.id] = false;  // Remove the node from recursion stack
+      path.pop();  // Remove node from current path
+      return false;
+  }
+
+  // Run DFS on each node
+  for (let node of graph.nodes) {
+      if (!visited[node.id]) {
+          dfs(node, []);
+      }
+  }
+
+  // Return an array of cycle node IDs
+  return Array.from(cycleNodes);
+}
+
+function findFixedNodes(graph) {
+  let fixedNodes = new Set();
+  for (let edge of graph.edges) {
+      if (edge.from === edge.to) {
+          fixedNodes.add(edge.from);
+      }
+  }
+  return Array.from(fixedNodes);
+}
+
+function isFactor(n, N) {
+  return N % n === 0;
+}
+
+function areCoprime(a, b) {
+  
+  function gcd(a, b) {
+      if (b === 0) {
+          return a;
+      }
+      return gcd(b, a % b);
+  }
+
+  return gcd(a, b) === 1;
+}
